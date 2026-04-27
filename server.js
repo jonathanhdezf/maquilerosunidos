@@ -30,6 +30,7 @@ const CONTACT = {
   whatsappLabel: process.env.WHATSAPP_LABEL || '238 123 4567',
 };
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'solicitudes';
+const SUPABASE_STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || '';
 const supabase = createSupabaseClient();
 
 const CAPACIDAD_OPTIONS = new Set(['50-100', '100-200', '200-500', '500+']);
@@ -176,14 +177,12 @@ app.post('/api/solicitudes', async (req, res) => {
     };
 
     await ensureStorage();
-    const pdfFilename = `${submission.id}.pdf`;
-    const pdfPath = path.join(PDF_DIR, pdfFilename);
-    await generateSubmissionPdf(submission, pdfPath);
-    submission.pdfUrl = `/data/pdfs/${pdfFilename}`;
+    const pdfAsset = await persistSubmissionPdf(submission);
+    submission.pdfUrl = pdfAsset.pdfUrl;
 
     await saveSubmission(submission);
 
-    const emailResult = await sendNotificationEmail(submission, pdfPath);
+    const emailResult = await sendNotificationEmail(submission, pdfAsset.emailAttachment);
 
     res.status(201).json({
       ok: true,
@@ -207,11 +206,6 @@ app.post('/api/solicitudes', async (req, res) => {
       message: 'No fue posible procesar la solicitud en este momento.',
     });
   }
-});
-
-app.listen(PORT, async () => {
-  await ensureStorage();
-  console.log(`Servidor activo en http://localhost:${PORT}`);
 });
 
 function normalizeSubmission(body) {
@@ -300,6 +294,10 @@ function buildSubmissionId() {
 }
 
 async function ensureStorage() {
+  if (shouldUseSupabaseStorage()) {
+    return;
+  }
+
   await fsp.mkdir(DATA_DIR, { recursive: true });
   await fsp.mkdir(PDF_DIR, { recursive: true });
 
@@ -400,12 +398,14 @@ async function updateSubmission(submissionId, payload) {
   return mapSubmissionRecord(current[index]);
 }
 
-async function generateSubmissionPdf(submission, outputPath) {
-  await new Promise((resolve, reject) => {
+async function createSubmissionPdfBuffer(submission) {
+  return await new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
-    const stream = fs.createWriteStream(outputPath);
+    const chunks = [];
 
-    doc.pipe(stream);
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
 
     doc.rect(0, 0, doc.page.width, 120).fill('#1A1A18');
     doc.fillColor('#E8C96E')
@@ -450,10 +450,58 @@ async function generateSubmissionPdf(submission, outputPath) {
       .text(`WhatsApp: ${CONTACT.whatsappLabel} | Correo: ${CONTACT.email}`);
 
     doc.end();
-
-    stream.on('finish', resolve);
-    stream.on('error', reject);
   });
+}
+
+async function persistSubmissionPdf(submission) {
+  const pdfBuffer = await createSubmissionPdfBuffer(submission);
+  const pdfFilename = `${submission.id}.pdf`;
+
+  if (shouldUseSupabaseStorage()) {
+    const storagePath = `solicitudes/${pdfFilename}`;
+    const { error } = await supabase.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .upload(storagePath, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+
+    if (error) {
+      throw new Error(`Supabase storage upload failed: ${error.message}`);
+    }
+
+    const publicUrl = supabase.storage
+      .from(SUPABASE_STORAGE_BUCKET)
+      .getPublicUrl(storagePath)
+      .data
+      .publicUrl;
+
+    return {
+      pdfFilename,
+      pdfBuffer,
+      pdfPath: storagePath,
+      pdfUrl: publicUrl,
+      emailAttachment: {
+        filename: pdfFilename,
+        content: pdfBuffer,
+      },
+    };
+  }
+
+  await ensureStorage();
+  const outputPath = path.join(PDF_DIR, pdfFilename);
+  await fsp.writeFile(outputPath, pdfBuffer);
+
+  return {
+    pdfFilename,
+    pdfBuffer,
+    pdfPath: outputPath,
+    pdfUrl: `/data/pdfs/${pdfFilename}`,
+    emailAttachment: {
+      filename: pdfFilename,
+      path: outputPath,
+    },
+  };
 }
 
 function drawField(doc, label, value) {
@@ -471,7 +519,7 @@ function drawActionButton(doc, x, y, width, height, color, label, url) {
   doc.link(x, y, width, height, url);
 }
 
-async function sendNotificationEmail(submission, pdfPath) {
+async function sendNotificationEmail(submission, attachment) {
   const transport = createTransport();
   if (!transport) {
     return { sent: false, reason: 'SMTP no configurado' };
@@ -489,10 +537,7 @@ async function sendNotificationEmail(submission, pdfPath) {
       `Tipos: ${submission.tipo.join(', ')}`,
     ].join('\n'),
     attachments: [
-      {
-        filename: `${submission.id}.pdf`,
-        path: pdfPath,
-      },
+      attachment,
     ],
   });
 
@@ -530,6 +575,10 @@ function createSupabaseClient() {
       autoRefreshToken: false,
     },
   });
+}
+
+function shouldUseSupabaseStorage() {
+  return Boolean(supabase && SUPABASE_STORAGE_BUCKET);
 }
 
 function buildSupabaseRow(submission) {
@@ -713,6 +762,15 @@ function safeEqual(a, b) {
   if (left.length !== right.length) return false;
   return crypto.timingSafeEqual(left, right);
 }
+
+if (require.main === module) {
+  app.listen(PORT, async () => {
+    await ensureStorage();
+    console.log(`Servidor activo en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
 
 function getWhatsappUrl() {
   return `https://wa.me/${CONTACT.whatsappNumber}`;
