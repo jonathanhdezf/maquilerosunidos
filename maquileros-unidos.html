@@ -281,7 +281,7 @@
     letter-spacing: 0.08em; text-transform: uppercase;
     color: rgba(245,237,214,0.6);
   }
-  .form-group input,
+  .form-group input:not([type="checkbox"]),
   .form-group select,
   .form-group textarea {
     background: rgba(255,255,255,0.04);
@@ -296,7 +296,7 @@
     appearance: none;
     -webkit-appearance: none;
   }
-  .form-group input:focus,
+  .form-group input:not([type="checkbox"]):focus,
   .form-group select:focus,
   .form-group textarea:focus { border-color: var(--dorado); }
   .form-group select option { background: #111110; color: var(--crema); }
@@ -321,7 +321,23 @@
     transition: border-color 0.2s, background 0.2s;
   }
   .check-label:hover { border-color: rgba(201,168,76,0.35); background: rgba(201,168,76,0.05); }
-  .check-label input { accent-color: var(--dorado); width: 16px; height: 16px; }
+  .check-label input {
+    appearance: auto;
+    -webkit-appearance: checkbox;
+    accent-color: var(--dorado);
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+  }
+  .check-label span {
+    flex: 1;
+    line-height: 1.4;
+  }
+  .check-label:has(input:checked) {
+    border-color: rgba(201,168,76,0.55);
+    background: rgba(201,168,76,0.12);
+    color: var(--crema);
+  }
 
   .btn-enviar {
     width: 100%;
@@ -471,31 +487,37 @@
   footer {
     background: #0e0e0d;
     border-top: 1px solid rgba(201,168,76,0.1);
-    padding: 3rem 2rem;
+    padding: 2.5rem 1rem;
     text-align: center;
   }
   .footer-logo {
     font-family: 'Playfair Display', serif;
-    font-size: 1.3rem; font-weight: 700;
+    font-size: 1.15rem; font-weight: 700;
     color: var(--dorado);
     margin-bottom: 0.4rem;
   }
   .footer-sub {
-    font-size: 0.75rem; letter-spacing: 0.2em;
+    font-size: 0.72rem; letter-spacing: 0.14em;
     text-transform: uppercase; color: rgba(245,237,214,0.35);
     margin-bottom: 1.5rem;
   }
   .footer-redes {
-    display: flex; gap: 1rem; justify-content: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    justify-content: center;
+    align-items: stretch;
     margin-bottom: 2rem;
   }
   .footer-redes a {
-    display: flex; align-items: center; gap: 0.4rem;
+    display: flex; align-items: center; justify-content: center; gap: 0.4rem;
     color: rgba(245,237,214,0.5);
     text-decoration: none; font-size: 0.85rem;
     border: 1px solid rgba(201,168,76,0.15);
-    padding: 0.5rem 1rem; border-radius: 2px;
+    padding: 0.75rem 1rem; border-radius: 2px;
     transition: color 0.2s, border-color 0.2s;
+    width: 100%;
+    min-width: 0;
   }
   .footer-redes a:hover { color: var(--dorado); border-color: rgba(201,168,76,0.4); }
   .footer-legal {
@@ -523,6 +545,17 @@
     .form-group.full { grid-column: 1; }
     .checkboxes-grid { grid-template-columns: 1fr; }
     nav a.cta-nav { padding: 0.45rem 0.9rem; font-size: 0.75rem; }
+  }
+  @media (min-width: 641px) {
+    footer { padding: 3rem 2rem; }
+    .footer-logo { font-size: 1.3rem; }
+    .footer-sub { letter-spacing: 0.2em; }
+    .footer-redes {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .footer-redes a { width: auto; }
   }
 </style>
 </head>
@@ -665,12 +698,12 @@
         <div class="form-group full">
           <p class="checkboxes-titulo">Tipo de maquila que sabe hacer *</p>
           <div class="checkboxes-grid">
-            <label class="check-label"><input type="checkbox" name="tipo" value="recta"> Costura recta</label>
-            <label class="check-label"><input type="checkbox" name="tipo" value="overlock"> Overlock (fileteado)</label>
-            <label class="check-label"><input type="checkbox" name="tipo" value="collareta"> Collareta</label>
-            <label class="check-label"><input type="checkbox" name="tipo" value="pretinado"> Pretinado</label>
-            <label class="check-label"><input type="checkbox" name="tipo" value="ojal"> Ojales y botones</label>
-            <label class="check-label"><input type="checkbox" name="tipo" value="otro"> Otro tipo</label>
+            <label class="check-label"><input type="checkbox" name="tipo" value="recta"><span>Costura recta</span></label>
+            <label class="check-label"><input type="checkbox" name="tipo" value="overlock"><span>Overlock (fileteado)</span></label>
+            <label class="check-label"><input type="checkbox" name="tipo" value="collareta"><span>Collareta</span></label>
+            <label class="check-label"><input type="checkbox" name="tipo" value="pretinado"><span>Pretinado</span></label>
+            <label class="check-label"><input type="checkbox" name="tipo" value="ojal"><span>Ojales y botones</span></label>
+            <label class="check-label"><input type="checkbox" name="tipo" value="otro"><span>Otro tipo</span></label>
           </div>
         </div>
         <!-- Red -->
