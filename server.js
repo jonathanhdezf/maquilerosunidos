@@ -1,6 +1,7 @@
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
@@ -16,6 +17,11 @@ const DATA_DIR = path.join(ROOT_DIR, 'data');
 const PDF_DIR = path.join(DATA_DIR, 'pdfs');
 const SUBMISSIONS_FILE = path.join(DATA_DIR, 'submissions.json');
 const HTML_FILE = path.join(ROOT_DIR, 'maquileros-unidos.html');
+const ADMIN_HTML_FILE = path.join(ROOT_DIR, 'admin.html');
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-now';
+const SESSION_COOKIE = 'mu_admin_session';
 
 const CONTACT = {
   companyName: process.env.COMPANY_NAME || 'Maquileros Unidos de la Sierra',
@@ -31,14 +37,23 @@ const MAQUINA_OPTIONS = new Set(['si', 'acceso', 'no']);
 const RED_OPTIONS = new Set(['', 'si', 'tal-vez', 'no']);
 const FUENTE_OPTIONS = new Set(['', 'facebook', 'recomendacion', 'google', 'instagram', 'otro']);
 const TIPO_OPTIONS = new Set(['recta', 'overlock', 'collareta', 'pretinado', 'ojal', 'otro']);
+const STATUS_OPTIONS = new Set(['nuevo', 'contactado', 'en-seguimiento', 'cerrado', 'descartado']);
+const SORT_MAP = {
+  'created_at.desc': { column: 'created_at', ascending: false },
+  'score.desc': { column: 'score', ascending: false },
+  'follow_up_at.asc': { column: 'follow_up_at', ascending: true },
+};
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/data/pdfs', express.static(PDF_DIR));
-app.use(express.static(ROOT_DIR, { index: false }));
 
 app.get('/', (_req, res) => {
   res.sendFile(HTML_FILE);
+});
+
+app.get('/admin', requireAdminPageAccess, (_req, res) => {
+  res.sendFile(ADMIN_HTML_FILE);
 });
 
 app.get('/api/config/public', (_req, res) => {
@@ -49,6 +64,93 @@ app.get('/api/config/public', (_req, res) => {
     whatsappUrl: getWhatsappUrl(),
     emailUrl: `mailto:${CONTACT.email}`,
   });
+});
+
+app.get('/api/admin/session', requireAdminApiAuth, (_req, res) => {
+  res.json({ ok: true, user: ADMIN_USERNAME });
+});
+
+app.post('/api/admin/login', (req, res) => {
+  const username = cleanText(req.body.username, 64);
+  const password = String(req.body.password || '');
+
+  if (!ADMIN_PASSWORD) {
+    return res.status(500).json({
+      ok: false,
+      message: 'El panel no tiene contraseña configurada en el servidor.',
+    });
+  }
+
+  const usernameOk = safeEqual(username, ADMIN_USERNAME);
+  const passwordOk = safeEqual(password, ADMIN_PASSWORD);
+
+  if (!usernameOk || !passwordOk) {
+    return res.status(401).json({
+      ok: false,
+      message: 'Credenciales inválidas.',
+    });
+  }
+
+  setSessionCookie(res, ADMIN_USERNAME);
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/logout', (_req, res) => {
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/solicitudes', requireAdminApiAuth, async (req, res) => {
+  try {
+    const filters = {
+      status: cleanText(req.query.status, 40),
+      search: cleanText(req.query.search, 120),
+      sort: cleanText(req.query.sort, 40) || 'created_at.desc',
+    };
+
+    const data = await listSubmissions(filters);
+
+    res.json({
+      ok: true,
+      data,
+      meta: {
+        total: data.length,
+        byStatus: summarizeStatuses(data),
+      },
+    });
+  } catch (error) {
+    console.error('Error al listar solicitudes:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'No fue posible cargar las solicitudes.',
+    });
+  }
+});
+
+app.patch('/api/admin/solicitudes/:submissionId', requireAdminApiAuth, async (req, res) => {
+  try {
+    const submissionId = cleanText(req.params.submissionId, 64);
+    const payload = normalizeAdminUpdate(req.body);
+    const errors = validateAdminUpdate(payload);
+
+    if (!submissionId) {
+      return res.status(400).json({ ok: false, message: 'Folio inválido.' });
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({ ok: false, message: errors.join(' ') });
+    }
+
+    const updated = await updateSubmission(submissionId, payload);
+    res.json({ ok: true, data: updated });
+  } catch (error) {
+    console.error('Error al actualizar solicitud:', error);
+    const status = error.message === 'NOT_FOUND' ? 404 : 500;
+    res.status(status).json({
+      ok: false,
+      message: status === 404 ? 'Solicitud no encontrada.' : 'No fue posible actualizar la solicitud.',
+    });
+  }
 });
 
 app.post('/api/solicitudes', async (req, res) => {
@@ -66,6 +168,11 @@ app.post('/api/solicitudes', async (req, res) => {
       ...payload,
       score: buildLeadScore(payload),
       qualifiesForDirectWhatsapp: qualifiesForDirectWhatsapp(payload),
+      status: 'nuevo',
+      notes: '',
+      assignedTo: null,
+      followUpAt: null,
+      lastContactedAt: null,
     };
 
     await ensureStorage();
@@ -127,6 +234,16 @@ function normalizeSubmission(body) {
   };
 }
 
+function normalizeAdminUpdate(body) {
+  return {
+    status: cleanText(body.status, 40),
+    notes: cleanText(body.notes, 5000),
+    assignedTo: cleanText(body.assignedTo, 120) || null,
+    followUpAt: normalizeDateValue(body.followUpAt),
+    lastContactedAt: normalizeDateValue(body.lastContactedAt),
+  };
+}
+
 function validateSubmission(payload) {
   const errors = [];
 
@@ -140,6 +257,14 @@ function validateSubmission(payload) {
   if (!RED_OPTIONS.has(payload.red)) errors.push('La opcion de red de apoyo no es valida.');
   if (!FUENTE_OPTIONS.has(payload.fuente)) errors.push('La opcion de origen del contacto no es valida.');
 
+  return errors;
+}
+
+function validateAdminUpdate(payload) {
+  const errors = [];
+  if (!STATUS_OPTIONS.has(payload.status)) errors.push('El estado no es válido.');
+  if (payload.followUpAt && Number.isNaN(Date.parse(payload.followUpAt))) errors.push('La fecha de seguimiento no es válida.');
+  if (payload.lastContactedAt && Number.isNaN(Date.parse(payload.lastContactedAt))) errors.push('La fecha de último contacto no es válida.');
   return errors;
 }
 
@@ -201,6 +326,78 @@ async function saveSubmission(submission) {
   const current = JSON.parse(await fsp.readFile(SUBMISSIONS_FILE, 'utf8'));
   current.push(submission);
   await fsp.writeFile(SUBMISSIONS_FILE, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
+}
+
+async function listSubmissions(filters) {
+  if (supabase) {
+    let query = supabase.from(SUPABASE_TABLE).select('*');
+
+    if (filters.status && STATUS_OPTIONS.has(filters.status)) {
+      query = query.eq('status', filters.status);
+    }
+
+    const sort = SORT_MAP[filters.sort] || SORT_MAP['created_at.desc'];
+    query = query.order(sort.column, { ascending: sort.ascending, nullsFirst: false });
+
+    const { data, error } = await query.limit(300);
+    if (error) {
+      throw new Error(`Supabase list failed: ${error.message}`);
+    }
+
+    return filterSearchResults((data || []).map(mapSubmissionRecord), filters.search);
+  }
+
+  const current = JSON.parse(await fsp.readFile(SUBMISSIONS_FILE, 'utf8'));
+  const mapped = current.map(mapSubmissionRecord);
+  const filtered = filters.status ? mapped.filter((item) => item.status === filters.status) : mapped;
+  return sortSubmissions(filterSearchResults(filtered, filters.search), filters.sort);
+}
+
+async function updateSubmission(submissionId, payload) {
+  if (supabase) {
+    const updateRow = {
+      status: payload.status,
+      notes: payload.notes || null,
+      assigned_to: payload.assignedTo,
+      follow_up_at: payload.followUpAt,
+      last_contacted_at: payload.lastContactedAt,
+    };
+
+    const { data, error } = await supabase
+      .from(SUPABASE_TABLE)
+      .update(updateRow)
+      .eq('submission_id', submissionId)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Supabase update failed: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error('NOT_FOUND');
+    }
+
+    return mapSubmissionRecord(data);
+  }
+
+  const current = JSON.parse(await fsp.readFile(SUBMISSIONS_FILE, 'utf8'));
+  const index = current.findIndex((item) => item.id === submissionId || item.submission_id === submissionId);
+  if (index < 0) {
+    throw new Error('NOT_FOUND');
+  }
+
+  current[index] = {
+    ...current[index],
+    status: payload.status,
+    notes: payload.notes || '',
+    assignedTo: payload.assignedTo,
+    followUpAt: payload.followUpAt,
+    lastContactedAt: payload.lastContactedAt,
+  };
+
+  await fsp.writeFile(SUBMISSIONS_FILE, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
+  return mapSubmissionRecord(current[index]);
 }
 
 async function generateSubmissionPdf(submission, outputPath) {
@@ -351,7 +548,170 @@ function buildSupabaseRow(submission) {
     score: submission.score,
     qualifies_for_direct_whatsapp: submission.qualifiesForDirectWhatsapp,
     pdf_url: submission.pdfUrl || null,
+    status: submission.status || 'nuevo',
+    notes: submission.notes || null,
+    assigned_to: submission.assignedTo || null,
+    follow_up_at: submission.followUpAt || null,
+    last_contacted_at: submission.lastContactedAt || null,
   };
+}
+
+function mapSubmissionRecord(record) {
+  return {
+    id: record.id || record.submission_id,
+    submission_id: record.submission_id || record.id,
+    created_at: record.created_at || record.createdAt,
+    nombre: record.nombre,
+    municipio: record.municipio,
+    telefono: record.telefono,
+    maquina: record.maquina,
+    capacidad: record.capacidad,
+    tipo: Array.isArray(record.tipo) ? record.tipo : [],
+    red: record.red || '',
+    fuente: record.fuente || '',
+    experiencia: record.experiencia || '',
+    score: record.score || 0,
+    qualifies_for_direct_whatsapp: Boolean(record.qualifies_for_direct_whatsapp ?? record.qualifiesForDirectWhatsapp),
+    pdf_url: record.pdf_url || record.pdfUrl || null,
+    status: record.status || 'nuevo',
+    notes: record.notes || '',
+    assigned_to: record.assigned_to || record.assignedTo || null,
+    follow_up_at: record.follow_up_at || record.followUpAt || null,
+    last_contacted_at: record.last_contacted_at || record.lastContactedAt || null,
+  };
+}
+
+function filterSearchResults(items, search) {
+  if (!search) return items;
+
+  const term = search.toLowerCase();
+  return items.filter((item) => {
+    const haystack = [
+      item.submission_id,
+      item.nombre,
+      item.municipio,
+      item.telefono,
+      item.assigned_to,
+      item.notes,
+    ].join(' ').toLowerCase();
+
+    return haystack.includes(term);
+  });
+}
+
+function sortSubmissions(items, sortKey) {
+  const sort = SORT_MAP[sortKey] || SORT_MAP['created_at.desc'];
+  return [...items].sort((a, b) => compareValues(a[sort.column], b[sort.column], sort.ascending));
+}
+
+function compareValues(a, b, ascending) {
+  const left = a ?? null;
+  const right = b ?? null;
+
+  if (left === right) return 0;
+  if (left === null) return 1;
+  if (right === null) return -1;
+
+  const leftValue = typeof left === 'string' && !Number.isNaN(Date.parse(left)) ? Date.parse(left) : left;
+  const rightValue = typeof right === 'string' && !Number.isNaN(Date.parse(right)) ? Date.parse(right) : right;
+
+  if (leftValue < rightValue) return ascending ? -1 : 1;
+  return ascending ? 1 : -1;
+}
+
+function summarizeStatuses(items) {
+  return items.reduce((acc, item) => {
+    const key = item.status || 'nuevo';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function normalizeDateValue(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 'invalid-date' : parsed.toISOString();
+}
+
+function requireAdminPageAccess(req, res, next) {
+  if (isAuthenticated(req)) {
+    return next();
+  }
+
+  res.sendFile(ADMIN_HTML_FILE);
+}
+
+function requireAdminApiAuth(req, res, next) {
+  if (isAuthenticated(req)) {
+    return next();
+  }
+
+  res.status(401).json({
+    ok: false,
+    message: 'Sesión no autorizada.',
+  });
+}
+
+function isAuthenticated(req) {
+  const cookies = parseCookies(req.headers.cookie || '');
+  const token = cookies[SESSION_COOKIE];
+  if (!token) return false;
+
+  const parts = token.split('.');
+  if (parts.length !== 2) return false;
+
+  const [payloadB64, signature] = parts;
+  const expected = signValue(payloadB64);
+  if (!safeEqual(signature, expected)) return false;
+
+  try {
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    if (payload.username !== ADMIN_USERNAME) return false;
+    if (Date.now() > payload.expiresAt) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function setSessionCookie(res, username) {
+  const payloadB64 = Buffer.from(JSON.stringify({
+    username,
+    expiresAt: Date.now() + (1000 * 60 * 60 * 12),
+  })).toString('base64url');
+  const token = `${payloadB64}.${signValue(payloadB64)}`;
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=43200${secure}`);
+}
+
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`);
+}
+
+function parseCookies(headerValue) {
+  return headerValue.split(';').reduce((acc, item) => {
+    const trimmed = item.trim();
+    if (!trimmed) return acc;
+    const separator = trimmed.indexOf('=');
+    const key = separator >= 0 ? trimmed.slice(0, separator) : trimmed;
+    const value = separator >= 0 ? trimmed.slice(separator + 1) : '';
+    acc[key] = decodeURIComponent(value);
+    return acc;
+  }, {});
+}
+
+function signValue(value) {
+  return crypto
+    .createHmac('sha256', SESSION_SECRET)
+    .update(value)
+    .digest('base64url');
+}
+
+function safeEqual(a, b) {
+  const left = Buffer.from(String(a || ''));
+  const right = Buffer.from(String(b || ''));
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
 }
 
 function getWhatsappUrl() {

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin | Maquileros Unidos</title>
+<style>
+  :root {
+    --bg: #0f1412;
+    --panel: #18201c;
+    --panel-2: #202a24;
+    --line: rgba(232, 201, 110, 0.18);
+    --gold: #e8c96e;
+    --gold-2: #c9a84c;
+    --text: #f5edd6;
+    --muted: rgba(245, 237, 214, 0.62);
+    --green: #2f6a44;
+    --green-2: #25d366;
+    --red: #d86b6b;
+    --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(47,106,68,0.22), transparent 32%),
+      radial-gradient(circle at top right, rgba(201,168,76,0.16), transparent 28%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .shell {
+    max-width: 1380px;
+    margin: 0 auto;
+    padding: 32px 20px 44px;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 700;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(30px, 4vw, 42px);
+    line-height: 1;
+  }
+  .sub {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .btn {
+    border: 0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease, background 0.2s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: var(--gold); color: #111; }
+  .btn.secondary { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  .btn.ghost { background: rgba(255,255,255,0.03); color: var(--text); }
+  .btn.logout { background: rgba(216,107,107,0.12); color: #ffd1d1; border: 1px solid rgba(216,107,107,0.2); }
+  .btn-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .status-nuevo { background: rgba(201,168,76,0.15); color: var(--gold); }
+  .status-contactado { background: rgba(37,211,102,0.14); color: #98f0b8; }
+  .status-en-seguimiento { background: rgba(74,135,224,0.16); color: #b9d4ff; }
+  .status-cerrado { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); }
+  .status-descartado { background: rgba(216,107,107,0.14); color: #ffb7b7; }
+  .grid {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 20px;
+  }
+  .panel {
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+  }
+  .login-card {
+    max-width: 430px;
+    margin: 72px auto;
+    padding: 28px;
+  }
+  .panel-head {
+    padding: 18px 18px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .panel-body {
+    padding: 18px;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .stat {
+    padding: 16px;
+    border-radius: 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+  .stat small {
+    display: block;
+    color: var(--muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 11px;
+  }
+  .stat strong { font-size: 30px; }
+  label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    font-weight: 700;
+  }
+  input, select, textarea {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    color: var(--text);
+    padding: 12px 13px;
+    font: inherit;
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--gold-2);
+  }
+  .login-form, .filters, .detail-grid {
+    display: grid;
+    gap: 14px;
+  }
+  .filters {
+    grid-template-columns: 1fr 1fr;
+    margin-bottom: 16px;
+  }
+  .filters .full { grid-column: 1 / -1; }
+  .list {
+    display: grid;
+    gap: 12px;
+    max-height: 68vh;
+    overflow: auto;
+    padding-right: 2px;
+  }
+  .item {
+    background: var(--panel);
+    border: 1px solid transparent;
+    border-radius: 16px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.18s ease, transform 0.18s ease;
+  }
+  .item:hover, .item.active {
+    border-color: rgba(232, 201, 110, 0.36);
+    transform: translateY(-1px);
+  }
+  .item-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .item h3 {
+    margin: 0 0 4px;
+    font-size: 17px;
+  }
+  .item p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .chip {
+    padding: 7px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.84);
+  }
+  .detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .detail-grid .full { grid-column: 1 / -1; }
+  .detail-box {
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .detail-box small {
+    display: block;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+  }
+  .detail-box strong, .detail-box span {
+    display: block;
+    line-height: 1.5;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .helper, .empty, .error {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .error {
+    color: #ffb7b7;
+    min-height: 20px;
+  }
+  .hidden { display: none !important; }
+  @media (max-width: 1100px) {
+    .grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 700px) {
+    .shell { padding: 20px 14px 30px; }
+    .topbar { flex-direction: column; align-items: stretch; }
+    .filters, .detail-grid, .stats { grid-template-columns: 1fr; }
+    .actions .btn, .actions .btn-link { width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <section id="loginView" class="panel login-card">
+      <div class="panel-head">
+        <p class="eyebrow">Acceso privado</p>
+        <h1>Panel de administración</h1>
+        <p class="sub">Gestiona solicitudes, seguimiento y próximos contactos.</p>
+      </div>
+      <div class="panel-body">
+        <form id="loginForm" class="login-form">
+          <div>
+            <label for="username">Usuario</label>
+            <input id="username" name="username" type="text" autocomplete="username" required>
+          </div>
+          <div>
+            <label for="password">Contraseña</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="btn primary" type="submit">Entrar al panel</button>
+          <p id="loginError" class="error"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="appView" class="hidden">
+      <div class="topbar">
+        <div class="brand">
+          <p class="eyebrow">Backoffice</p>
+          <h1>Solicitudes recibidas</h1>
+          <p class="sub">Control comercial y operativo del formulario.</p>
+        </div>
+        <div class="actions">
+          <button id="refreshBtn" class="btn secondary" type="button">Actualizar</button>
+          <button id="logoutBtn" class="btn logout" type="button">Cerrar sesión</button>
+        </div>
+      </div>
+
+      <section class="stats" id="stats"></section>
+
+      <div class="grid">
+        <section class="panel">
+          <div class="panel-head">
+            <p class="eyebrow">Bandeja</p>
+            <p class="sub">Filtra por estado, búsqueda o prioridad.</p>
+          </div>
+          <div class="panel-body">
+            <div class="filters">
+              <div>
+                <label for="statusFilter">Estado</label>
+                <select id="statusFilter">
+                  <option value="">Todos</option>
+                  <option value="nuevo">Nuevo</option>
+                  <option value="contactado">Contactado</option>
+                  <option value="en-seguimiento">En seguimiento</option>
+                  <option value="cerrado">Cerrado</option>
+                  <option value="descartado">Descartado</option>
+                </select>
+              </div>
+              <div>
+                <label for="sortOrder">Orden</label>
+                <select id="sortOrder">
+                  <option value="created_at.desc">Más recientes</option>
+                  <option value="score.desc">Mayor prioridad</option>
+                  <option value="follow_up_at.asc">Próximo seguimiento</option>
+                </select>
+              </div>
+              <div class="full">
+                <label for="searchInput">Buscar</label>
+                <input id="searchInput" type="search" placeholder="Nombre, teléfono, municipio o folio">
+              </div>
+            </div>
+            <div id="list" class="list"></div>
+            <p id="emptyState" class="empty hidden">No hay solicitudes para ese filtro.</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <p class="eyebrow">Seguimiento</p>
+            <p class="sub">Actualiza estado, responsable, próximas acciones y notas.</p>
+          </div>
+          <div class="panel-body">
+            <div id="detailEmpty" class="helper">Selecciona una solicitud de la lista para ver y gestionar sus datos.</div>
+            <form id="detailForm" class="hidden">
+              <div class="detail-grid" id="detailSummary"></div>
+              <div class="detail-grid" style="margin-top:18px;">
+                <div>
+                  <label for="detailStatus">Estado</label>
+                  <select id="detailStatus" name="status">
+                    <option value="nuevo">Nuevo</option>
+                    <option value="contactado">Contactado</option>
+                    <option value="en-seguimiento">En seguimiento</option>
+                    <option value="cerrado">Cerrado</option>
+                    <option value="descartado">Descartado</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="detailAssignedTo">Responsable</label>
+                  <input id="detailAssignedTo" name="assignedTo" type="text" placeholder="Ej. Jonathan">
+                </div>
+                <div>
+                  <label for="detailFollowUpAt">Próximo seguimiento</label>
+                  <input id="detailFollowUpAt" name="followUpAt" type="datetime-local">
+                </div>
+                <div>
+                  <label for="detailLastContactedAt">Último contacto</label>
+                  <input id="detailLastContactedAt" name="lastContactedAt" type="datetime-local">
+                </div>
+                <div class="full">
+                  <label for="detailNotes">Notas internas</label>
+                  <textarea id="detailNotes" name="notes" placeholder="Resumen de llamada, acuerdos, capacidad real, dudas, siguiente paso..."></textarea>
+                </div>
+              </div>
+              <div class="actions" style="margin-top:16px;">
+                <button class="btn primary" type="submit">Guardar seguimiento</button>
+                <button id="markContactedBtn" class="btn ghost" type="button">Marcar como contactado ahora</button>
+                <a id="detailPdfLink" class="btn secondary btn-link" href="#" target="_blank" rel="noopener">Abrir PDF</a>
+                <a id="detailWhatsappLink" class="btn secondary btn-link" href="#" target="_blank" rel="noopener">WhatsApp</a>
+                <a id="detailEmailLink" class="btn secondary btn-link" href="#">Correo</a>
+              </div>
+              <p id="detailMessage" class="helper" style="margin-top:12px;"></p>
+            </form>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+<script>
+  const state = {
+    requests: [],
+    selectedId: null,
+    filters: {
+      status: '',
+      search: '',
+      sort: 'created_at.desc'
+    }
+  };
+
+  const els = {
+    loginView: document.getElementById('loginView'),
+    appView: document.getElementById('appView'),
+    loginForm: document.getElementById('loginForm'),
+    loginError: document.getElementById('loginError'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    refreshBtn: document.getElementById('refreshBtn'),
+    statusFilter: document.getElementById('statusFilter'),
+    sortOrder: document.getElementById('sortOrder'),
+    searchInput: document.getElementById('searchInput'),
+    stats: document.getElementById('stats'),
+    list: document.getElementById('list'),
+    emptyState: document.getElementById('emptyState'),
+    detailEmpty: document.getElementById('detailEmpty'),
+    detailForm: document.getElementById('detailForm'),
+    detailSummary: document.getElementById('detailSummary'),
+    detailStatus: document.getElementById('detailStatus'),
+    detailAssignedTo: document.getElementById('detailAssignedTo'),
+    detailFollowUpAt: document.getElementById('detailFollowUpAt'),
+    detailLastContactedAt: document.getElementById('detailLastContactedAt'),
+    detailNotes: document.getElementById('detailNotes'),
+    detailMessage: document.getElementById('detailMessage'),
+    detailPdfLink: document.getElementById('detailPdfLink'),
+    detailWhatsappLink: document.getElementById('detailWhatsappLink'),
+    detailEmailLink: document.getElementById('detailEmailLink'),
+    markContactedBtn: document.getElementById('markContactedBtn')
+  };
+
+  document.addEventListener('DOMContentLoaded', bootstrap);
+
+  els.loginForm.addEventListener('submit', handleLogin);
+  els.logoutBtn.addEventListener('click', handleLogout);
+  els.refreshBtn.addEventListener('click', loadRequests);
+  els.statusFilter.addEventListener('change', () => updateFilter('status', els.statusFilter.value));
+  els.sortOrder.addEventListener('change', () => updateFilter('sort', els.sortOrder.value));
+  els.searchInput.addEventListener('input', () => updateFilter('search', els.searchInput.value));
+  els.detailForm.addEventListener('submit', handleSaveDetail);
+  els.markContactedBtn.addEventListener('click', markContactedNow);
+
+  async function bootstrap() {
+    const session = await api('/api/admin/session');
+    if (session.ok) {
+      showApp();
+      await loadRequests();
+      return;
+    }
+    showLogin();
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    els.loginError.textContent = '';
+    const formData = new FormData(els.loginForm);
+    const payload = Object.fromEntries(formData.entries());
+    const result = await api('/api/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    if (!result.ok) {
+      els.loginError.textContent = result.message || 'No fue posible iniciar sesión.';
+      return;
+    }
+
+    els.loginForm.reset();
+    showApp();
+    await loadRequests();
+  }
+
+  async function handleLogout() {
+    await api('/api/admin/logout', { method: 'POST' });
+    showLogin();
+  }
+
+  async function loadRequests() {
+    const params = new URLSearchParams();
+    if (state.filters.status) params.set('status', state.filters.status);
+    if (state.filters.search) params.set('search', state.filters.search);
+    if (state.filters.sort) params.set('sort', state.filters.sort);
+
+    const result = await api(`/api/admin/solicitudes?${params.toString()}`);
+    if (!result.ok) {
+      if (result.status === 401) {
+        showLogin();
+        return;
+      }
+      els.list.innerHTML = '';
+      els.emptyState.classList.remove('hidden');
+      els.emptyState.textContent = result.message || 'No fue posible cargar las solicitudes.';
+      return;
+    }
+
+    state.requests = result.data || [];
+    renderStats(result.meta || {});
+    renderList();
+
+    if (!state.requests.length) {
+      selectRequest(null);
+      return;
+    }
+
+    const stillExists = state.requests.some((item) => item.submission_id === state.selectedId);
+    selectRequest(stillExists ? state.selectedId : state.requests[0].submission_id);
+  }
+
+  function updateFilter(key, value) {
+    state.filters[key] = value;
+    loadRequests();
+  }
+
+  function renderStats(meta) {
+    const items = [
+      ['Total', meta.total || 0],
+      ['Nuevos', meta.byStatus?.nuevo || 0],
+      ['Seguimiento', meta.byStatus?.['en-seguimiento'] || 0],
+      ['Cierre', meta.byStatus?.cerrado || 0]
+    ];
+
+    els.stats.innerHTML = items.map(([label, value]) => `
+      <article class="stat">
+        <small>${escapeHtml(label)}</small>
+        <strong>${escapeHtml(String(value))}</strong>
+      </article>
+    `).join('');
+  }
+
+  function renderList() {
+    els.list.innerHTML = '';
+    const items = state.requests;
+    els.emptyState.classList.toggle('hidden', items.length > 0);
+
+    for (const item of items) {
+      const node = document.createElement('button');
+      node.type = 'button';
+      node.className = `item ${item.submission_id === state.selectedId ? 'active' : ''}`;
+      node.innerHTML = `
+        <div class="item-top">
+          <div>
+            <h3>${escapeHtml(item.nombre || 'Sin nombre')}</h3>
+            <p>${escapeHtml(item.municipio || 'Sin municipio')} · ${escapeHtml(item.telefono || 'Sin teléfono')}</p>
+          </div>
+          ${renderStatus(item.status)}
+        </div>
+        <p>Folio: ${escapeHtml(item.submission_id || '')}</p>
+        <div class="item-meta">
+          <span class="chip">Score ${escapeHtml(String(item.score || 0))}</span>
+          <span class="chip">${escapeHtml(labelDate(item.created_at))}</span>
+          ${item.assigned_to ? `<span class="chip">${escapeHtml(item.assigned_to)}</span>` : ''}
+        </div>
+      `;
+      node.addEventListener('click', () => selectRequest(item.submission_id));
+      els.list.appendChild(node);
+    }
+  }
+
+  function selectRequest(submissionId) {
+    state.selectedId = submissionId;
+    renderList();
+
+    const item = state.requests.find((entry) => entry.submission_id === submissionId);
+    if (!item) {
+      els.detailEmpty.classList.remove('hidden');
+      els.detailForm.classList.add('hidden');
+      return;
+    }
+
+    els.detailEmpty.classList.add('hidden');
+    els.detailForm.classList.remove('hidden');
+    els.detailMessage.textContent = '';
+    els.detailSummary.innerHTML = `
+      ${box('Folio', item.submission_id)}
+      ${box('Creado', labelDateTime(item.created_at))}
+      ${box('Nombre', item.nombre)}
+      ${box('Municipio', item.municipio)}
+      ${box('Teléfono', item.telefono)}
+      ${box('Capacidad', item.capacidad)}
+      ${box('Máquina', labelMachine(item.maquina))}
+      ${box('Tipos', Array.isArray(item.tipo) ? item.tipo.map(labelTipo).join(', ') : '')}
+      ${box('Experiencia', item.experiencia || 'Sin comentarios', true)}
+    `;
+
+    els.detailStatus.value = item.status || 'nuevo';
+    els.detailAssignedTo.value = item.assigned_to || '';
+    els.detailFollowUpAt.value = toInputDateTime(item.follow_up_at);
+    els.detailLastContactedAt.value = toInputDateTime(item.last_contacted_at);
+    els.detailNotes.value = item.notes || '';
+    els.detailPdfLink.href = item.pdf_url || '#';
+    els.detailWhatsappLink.href = buildWhatsappItemLink(item.telefono, item.nombre);
+    els.detailEmailLink.href = buildEmailLink(item);
+  }
+
+  async function handleSaveDetail(event) {
+    event.preventDefault();
+    const item = currentItem();
+    if (!item) return;
+
+    const payload = {
+      status: els.detailStatus.value,
+      assignedTo: els.detailAssignedTo.value.trim(),
+      followUpAt: fromInputDateTime(els.detailFollowUpAt.value),
+      lastContactedAt: fromInputDateTime(els.detailLastContactedAt.value),
+      notes: els.detailNotes.value.trim()
+    };
+
+    const result = await api(`/api/admin/solicitudes/${encodeURIComponent(item.submission_id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    });
+
+    if (!result.ok) {
+      els.detailMessage.textContent = result.message || 'No fue posible guardar el seguimiento.';
+      return;
+    }
+
+    els.detailMessage.textContent = 'Seguimiento guardado correctamente.';
+    await loadRequests();
+  }
+
+  async function markContactedNow() {
+    els.detailStatus.value = 'contactado';
+    els.detailLastContactedAt.value = toInputDateTime(new Date().toISOString());
+    await handleSaveDetail(new Event('submit'));
+  }
+
+  function currentItem() {
+    return state.requests.find((entry) => entry.submission_id === state.selectedId);
+  }
+
+  function showLogin() {
+    els.loginView.classList.remove('hidden');
+    els.appView.classList.add('hidden');
+  }
+
+  function showApp() {
+    els.loginView.classList.add('hidden');
+    els.appView.classList.remove('hidden');
+  }
+
+  async function api(url, options = {}) {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      },
+      ...options
+    }).catch(() => null);
+
+    if (!response) {
+      return { ok: false, message: 'Sin conexión con el servidor.' };
+    }
+
+    const data = await response.json().catch(() => ({}));
+    return { status: response.status, ...data };
+  }
+
+  function box(label, value, full = false) {
+    return `
+      <div class="detail-box ${full ? 'full' : ''}">
+        <small>${escapeHtml(label)}</small>
+        <span>${escapeHtml(value || '-')}</span>
+      </div>
+    `;
+  }
+
+  function renderStatus(status) {
+    const safe = status || 'nuevo';
+    const label = ({
+      nuevo: 'Nuevo',
+      contactado: 'Contactado',
+      'en-seguimiento': 'En seguimiento',
+      cerrado: 'Cerrado',
+      descartado: 'Descartado'
+    })[safe] || safe;
+
+    return `<span class="status-pill status-${escapeHtml(safe)}">${escapeHtml(label)}</span>`;
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function labelDate(value) {
+    if (!value) return '-';
+    return new Date(value).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function labelDateTime(value) {
+    if (!value) return '-';
+    return new Date(value).toLocaleString('es-MX');
+  }
+
+  function toInputDateTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function fromInputDateTime(value) {
+    return value ? new Date(value).toISOString() : null;
+  }
+
+  function buildWhatsappItemLink(phone, name) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    const message = encodeURIComponent(`Hola ${name || ''}, te contactamos de Maquileros Unidos para dar seguimiento a tu solicitud.`);
+    return digits ? `https://wa.me/52${digits}?text=${message}` : '#';
+  }
+
+  function buildEmailLink(item) {
+    const subject = encodeURIComponent(`Seguimiento a solicitud ${item.submission_id}`);
+    const body = encodeURIComponent(`Hola ${item.nombre || ''},\n\nTe contactamos para dar seguimiento a tu solicitud en Maquileros Unidos.\n\nSaludos.`);
+    return `mailto:?subject=${subject}&body=${body}`;
+  }
+
+  function labelMachine(value) {
+    return ({
+      si: 'Sí, propia',
+      acceso: 'Tiene acceso a una',
+      no: 'No tiene'
+    })[value] || value || '-';
+  }
+
+  function labelTipo(value) {
+    return ({
+      recta: 'Costura recta',
+      overlock: 'Overlock',
+      collareta: 'Collareta',
+      pretinado: 'Pretinado',
+      ojal: 'Ojales y botones',
+      otro: 'Otro tipo'
+    })[value] || value;
+  }
+</script>
+</body>
+</html>
