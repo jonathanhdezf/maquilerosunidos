@@ -755,8 +755,6 @@
       </div>
       <div class="confirmacion-acciones">
         <a id="pdfLink" class="contacto-btn pdf" href="#" target="_blank" rel="noopener">Descargar PDF</a>
-        <a id="whatsappLink" class="contacto-btn whatsapp" href="#" target="_blank" rel="noopener">Contactar por WhatsApp</a>
-        <a id="emailLink" class="contacto-btn email" href="#">Enviar correo</a>
       </div>
       <p id="emailStatus" class="contacto-secundario"></p>
     </div>
@@ -896,7 +894,14 @@
       }
 
       applyContactConfig(result.contact);
-      document.getElementById('pdfLink').href = result.pdfUrl;
+      const pdfLink = document.getElementById('pdfLink');
+      if (result.pdfUrl) {
+        pdfLink.href = result.pdfUrl;
+        pdfLink.style.display = 'inline-flex';
+      } else {
+        pdfLink.removeAttribute('href');
+        pdfLink.style.display = 'none';
+      }
       document.getElementById('emailStatus').textContent = result.emailNotification && result.emailNotification.sent
         ? 'La solicitud tambien fue enviada al correo del equipo.'
         : 'La solicitud quedo registrada correctamente.';
@@ -922,8 +927,6 @@
     if (!config) return;
 
     document.getElementById('whatsappLabel').textContent = config.whatsappLabel;
-    document.getElementById('whatsappLink').href = config.whatsappUrl;
-    document.getElementById('emailLink').href = config.emailUrl;
     document.getElementById('footerWhatsappLink').href = config.whatsappUrl;
     document.getElementById('footerEmailLink').href = config.emailUrl;
   }

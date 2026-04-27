@@ -84,6 +84,14 @@
     justify-content: center;
     text-decoration: none;
   }
+  .btn.danger { background: rgba(216,107,107,0.16); color: #ffd1d1; border: 1px solid rgba(216,107,107,0.25); }
+  .btn[disabled],
+  .btn-link.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none;
+  }
   .status-pill {
     display: inline-flex;
     align-items: center;
@@ -183,12 +191,17 @@
     padding-right: 2px;
   }
   .item {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    text-align: left;
     background: var(--panel);
     border: 1px solid transparent;
     border-radius: 16px;
     padding: 14px;
     cursor: pointer;
     transition: border-color 0.18s ease, transform 0.18s ease;
+    color: var(--text);
   }
   .item:hover, .item.active {
     border-color: rgba(232, 201, 110, 0.36);
@@ -204,6 +217,7 @@
   .item h3 {
     margin: 0 0 4px;
     font-size: 17px;
+    color: var(--text);
   }
   .item p {
     margin: 0;
@@ -390,6 +404,7 @@
                 <a id="detailPdfLink" class="btn secondary btn-link" href="#" target="_blank" rel="noopener">Abrir PDF</a>
                 <a id="detailWhatsappLink" class="btn secondary btn-link" href="#" target="_blank" rel="noopener">WhatsApp</a>
                 <a id="detailEmailLink" class="btn secondary btn-link" href="#">Correo</a>
+                <button id="deleteRequestBtn" class="btn danger" type="button">Eliminar solicitud</button>
               </div>
               <p id="detailMessage" class="helper" style="margin-top:12px;"></p>
             </form>
@@ -435,7 +450,8 @@
     detailPdfLink: document.getElementById('detailPdfLink'),
     detailWhatsappLink: document.getElementById('detailWhatsappLink'),
     detailEmailLink: document.getElementById('detailEmailLink'),
-    markContactedBtn: document.getElementById('markContactedBtn')
+    markContactedBtn: document.getElementById('markContactedBtn'),
+    deleteRequestBtn: document.getElementById('deleteRequestBtn')
   };
 
   document.addEventListener('DOMContentLoaded', bootstrap);
@@ -448,6 +464,7 @@
   els.searchInput.addEventListener('input', () => updateFilter('search', els.searchInput.value));
   els.detailForm.addEventListener('submit', handleSaveDetail);
   els.markContactedBtn.addEventListener('click', markContactedNow);
+  els.deleteRequestBtn.addEventListener('click', handleDeleteRequest);
 
   async function bootstrap() {
     const session = await api('/api/admin/session');
@@ -596,7 +613,7 @@
     els.detailFollowUpAt.value = toInputDateTime(item.follow_up_at);
     els.detailLastContactedAt.value = toInputDateTime(item.last_contacted_at);
     els.detailNotes.value = item.notes || '';
-    els.detailPdfLink.href = item.pdf_url || '#';
+    setActionLink(els.detailPdfLink, item.pdf_url, 'Abrir PDF');
     els.detailWhatsappLink.href = buildWhatsappItemLink(item.telefono, item.nombre);
     els.detailEmailLink.href = buildEmailLink(item);
   }
@@ -634,8 +651,41 @@
     await handleSaveDetail(new Event('submit'));
   }
 
+  async function handleDeleteRequest() {
+    const item = currentItem();
+    if (!item) return;
+
+    const confirmed = window.confirm(`¿Eliminar la solicitud ${item.submission_id} de ${item.nombre}? Esta acción no se puede deshacer.`);
+    if (!confirmed) return;
+
+    const result = await api(`/api/admin/solicitudes/${encodeURIComponent(item.submission_id)}`, {
+      method: 'DELETE'
+    });
+
+    if (!result.ok) {
+      els.detailMessage.textContent = result.message || 'No fue posible eliminar la solicitud.';
+      return;
+    }
+
+    els.detailMessage.textContent = 'Solicitud eliminada correctamente.';
+    state.selectedId = null;
+    await loadRequests();
+  }
+
   function currentItem() {
     return state.requests.find((entry) => entry.submission_id === state.selectedId);
+  }
+
+  function setActionLink(element, href, label) {
+    element.textContent = href ? label : `${label} no disponible`;
+    if (href) {
+      element.href = href;
+      element.classList.remove('disabled');
+      return;
+    }
+
+    element.removeAttribute('href');
+    element.classList.add('disabled');
   }
 
   function showLogin() {

@@ -22,6 +22,7 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-now';
 const SESSION_COOKIE = 'mu_admin_session';
+const IS_VERCEL = Boolean(process.env.VERCEL);
 
 const CONTACT = {
   companyName: process.env.COMPANY_NAME || 'Maquileros Unidos de la Sierra',
@@ -154,6 +155,26 @@ app.patch('/api/admin/solicitudes/:submissionId', requireAdminApiAuth, async (re
   }
 });
 
+app.delete('/api/admin/solicitudes/:submissionId', requireAdminApiAuth, async (req, res) => {
+  try {
+    const submissionId = cleanText(req.params.submissionId, 64);
+
+    if (!submissionId) {
+      return res.status(400).json({ ok: false, message: 'Folio inválido.' });
+    }
+
+    await deleteSubmission(submissionId);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Error al eliminar solicitud:', error);
+    const status = error.message === 'NOT_FOUND' ? 404 : 500;
+    res.status(status).json({
+      ok: false,
+      message: status === 404 ? 'Solicitud no encontrada.' : 'No fue posible eliminar la solicitud.',
+    });
+  }
+});
+
 app.post('/api/solicitudes', async (req, res) => {
   try {
     const payload = normalizeSubmission(req.body);
@@ -174,15 +195,31 @@ app.post('/api/solicitudes', async (req, res) => {
       assignedTo: null,
       followUpAt: null,
       lastContactedAt: null,
+      pdfUrl: null,
     };
-
-    await ensureStorage();
-    const pdfAsset = await persistSubmissionPdf(submission);
-    submission.pdfUrl = pdfAsset.pdfUrl;
 
     await saveSubmission(submission);
 
-    const emailResult = await sendNotificationEmail(submission, pdfAsset.emailAttachment);
+    let pdfAsset = null;
+    try {
+      await ensureStorage();
+      pdfAsset = await persistSubmissionPdf(submission);
+      submission.pdfUrl = pdfAsset.pdfUrl || null;
+
+      if (submission.pdfUrl) {
+        await updateSubmissionPdfUrl(submission.id, submission.pdfUrl);
+      }
+    } catch (error) {
+      console.error('Error al generar o persistir PDF:', error);
+    }
+
+    let emailResult = { sent: false, reason: 'SMTP no configurado' };
+    try {
+      emailResult = await sendNotificationEmail(submission, pdfAsset?.emailAttachment || null);
+    } catch (error) {
+      console.error('Error al enviar correo de notificación:', error);
+      emailResult = { sent: false, reason: 'Error al enviar correo' };
+    }
 
     res.status(201).json({
       ok: true,
@@ -294,7 +331,7 @@ function buildSubmissionId() {
 }
 
 async function ensureStorage() {
-  if (shouldUseSupabaseStorage()) {
+  if (shouldUseSupabaseStorage() || IS_VERCEL) {
     return;
   }
 
@@ -323,6 +360,32 @@ async function saveSubmission(submission) {
 
   const current = JSON.parse(await fsp.readFile(SUBMISSIONS_FILE, 'utf8'));
   current.push(submission);
+  await fsp.writeFile(SUBMISSIONS_FILE, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
+}
+
+async function updateSubmissionPdfUrl(submissionId, pdfUrl) {
+  if (supabase) {
+    const { error } = await supabase
+      .from(SUPABASE_TABLE)
+      .update({ pdf_url: pdfUrl })
+      .eq('submission_id', submissionId);
+
+    if (error) {
+      throw new Error(`Supabase pdf update failed: ${error.message}`);
+    }
+
+    return;
+  }
+
+  const current = JSON.parse(await fsp.readFile(SUBMISSIONS_FILE, 'utf8'));
+  const index = current.findIndex((item) => item.id === submissionId || item.submission_id === submissionId);
+  if (index < 0) return;
+
+  current[index] = {
+    ...current[index],
+    pdfUrl,
+  };
+
   await fsp.writeFile(SUBMISSIONS_FILE, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
 }
 
@@ -396,6 +459,38 @@ async function updateSubmission(submissionId, payload) {
 
   await fsp.writeFile(SUBMISSIONS_FILE, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
   return mapSubmissionRecord(current[index]);
+}
+
+async function deleteSubmission(submissionId) {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from(SUPABASE_TABLE)
+      .delete()
+      .eq('submission_id', submissionId)
+      .select('pdf_url')
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Supabase delete failed: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error('NOT_FOUND');
+    }
+
+    await deletePdfAsset(data.pdf_url || null);
+    return;
+  }
+
+  const current = JSON.parse(await fsp.readFile(SUBMISSIONS_FILE, 'utf8'));
+  const index = current.findIndex((item) => item.id === submissionId || item.submission_id === submissionId);
+  if (index < 0) {
+    throw new Error('NOT_FOUND');
+  }
+
+  const [removed] = current.splice(index, 1);
+  await fsp.writeFile(SUBMISSIONS_FILE, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
+  await deletePdfAsset(removed.pdfUrl || removed.pdf_url || null);
 }
 
 async function createSubmissionPdfBuffer(submission) {
@@ -488,6 +583,19 @@ async function persistSubmissionPdf(submission) {
     };
   }
 
+  if (IS_VERCEL) {
+    return {
+      pdfFilename,
+      pdfBuffer,
+      pdfPath: null,
+      pdfUrl: null,
+      emailAttachment: {
+        filename: pdfFilename,
+        content: pdfBuffer,
+      },
+    };
+  }
+
   await ensureStorage();
   const outputPath = path.join(PDF_DIR, pdfFilename);
   await fsp.writeFile(outputPath, pdfBuffer);
@@ -502,6 +610,39 @@ async function persistSubmissionPdf(submission) {
       path: outputPath,
     },
   };
+}
+
+async function deletePdfAsset(pdfUrl) {
+  if (!pdfUrl) return;
+
+  if (shouldUseSupabaseStorage()) {
+    try {
+      const storagePrefix = `/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/`;
+      const url = new URL(pdfUrl);
+      const markerIndex = url.pathname.indexOf(storagePrefix);
+      if (markerIndex >= 0) {
+        const storagePath = decodeURIComponent(url.pathname.slice(markerIndex + storagePrefix.length));
+        const { error } = await supabase.storage.from(SUPABASE_STORAGE_BUCKET).remove([storagePath]);
+        if (error) {
+          console.error('Error al eliminar PDF en storage:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error al resolver URL de PDF:', error);
+    }
+    return;
+  }
+
+  if (pdfUrl.startsWith('/data/pdfs/')) {
+    const filename = pdfUrl.split('/').pop();
+    if (!filename) return;
+    const localPath = path.join(PDF_DIR, filename);
+    try {
+      await fsp.unlink(localPath);
+    } catch {
+      return;
+    }
+  }
 }
 
 function drawField(doc, label, value) {
@@ -536,9 +677,7 @@ async function sendNotificationEmail(submission, attachment) {
       `Capacidad: ${submission.capacidad}`,
       `Tipos: ${submission.tipo.join(', ')}`,
     ].join('\n'),
-    attachments: [
-      attachment,
-    ],
+    attachments: attachment ? [attachment] : [],
   });
 
   return { sent: true };
