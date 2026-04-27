@@ -3,6 +3,7 @@ const fsp = require('fs/promises');
 const path = require('path');
 
 const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
 const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
@@ -22,6 +23,8 @@ const CONTACT = {
   whatsappNumber: String(process.env.WHATSAPP_NUMBER || '522381234567').replace(/\D/g, ''),
   whatsappLabel: process.env.WHATSAPP_LABEL || '238 123 4567',
 };
+const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'solicitudes';
+const supabase = createSupabaseClient();
 
 const CAPACIDAD_OPTIONS = new Set(['50-100', '100-200', '200-500', '500+']);
 const MAQUINA_OPTIONS = new Set(['si', 'acceso', 'no']);
@@ -66,11 +69,12 @@ app.post('/api/solicitudes', async (req, res) => {
     };
 
     await ensureStorage();
-    await saveSubmission(submission);
-
     const pdfFilename = `${submission.id}.pdf`;
     const pdfPath = path.join(PDF_DIR, pdfFilename);
     await generateSubmissionPdf(submission, pdfPath);
+    submission.pdfUrl = `/data/pdfs/${pdfFilename}`;
+
+    await saveSubmission(submission);
 
     const emailResult = await sendNotificationEmail(submission, pdfPath);
 
@@ -78,7 +82,7 @@ app.post('/api/solicitudes', async (req, res) => {
       ok: true,
       message: 'Solicitud recibida correctamente.',
       submissionId: submission.id,
-      pdfUrl: `/data/pdfs/${pdfFilename}`,
+      pdfUrl: submission.pdfUrl,
       qualifiesForDirectWhatsapp: submission.qualifiesForDirectWhatsapp,
       contact: {
         companyName: CONTACT.companyName,
@@ -182,6 +186,18 @@ async function ensureStorage() {
 }
 
 async function saveSubmission(submission) {
+  if (supabase) {
+    const { error } = await supabase
+      .from(SUPABASE_TABLE)
+      .insert(buildSupabaseRow(submission));
+
+    if (error) {
+      throw new Error(`Supabase insert failed: ${error.message}`);
+    }
+
+    return;
+  }
+
   const current = JSON.parse(await fsp.readFile(SUBMISSIONS_FILE, 'utf8'));
   current.push(submission);
   await fsp.writeFile(SUBMISSIONS_FILE, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
@@ -301,6 +317,41 @@ function createTransport() {
       pass: SMTP_PASS,
     },
   });
+}
+
+function createSupabaseClient() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    return null;
+  }
+
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+function buildSupabaseRow(submission) {
+  return {
+    submission_id: submission.id,
+    created_at: submission.createdAt,
+    nombre: submission.nombre,
+    municipio: submission.municipio,
+    telefono: submission.telefono,
+    maquina: submission.maquina,
+    capacidad: submission.capacidad,
+    tipo: submission.tipo,
+    red: submission.red || null,
+    fuente: submission.fuente || null,
+    experiencia: submission.experiencia || null,
+    score: submission.score,
+    qualifies_for_direct_whatsapp: submission.qualifiesForDirectWhatsapp,
+    pdf_url: submission.pdfUrl || null,
+  };
 }
 
 function getWhatsappUrl() {
