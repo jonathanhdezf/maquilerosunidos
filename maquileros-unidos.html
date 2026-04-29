@@ -234,10 +234,79 @@
   .scroll-hint .arrow { animation: bounce 1.5s ease-in-out infinite; font-size: 1.2rem; }
 
   /* ── SECCIÓN BENEFICIOS ── */
+  .seccion-beneficios-wrapper {
+    position: relative;
+    overflow: hidden;
+    background: #131311;
+    padding: 5rem 0;
+  }
+  .seccion-beneficios-wrapper .cubes-bg {
+    position: absolute; inset: 0;
+    --sz: 4px;
+    --b1: #2D4A22;
+    --b2: #1c2818;
+    --b3: #0c0b0a;
+    --b4: #0c0b0ae0;
+    --c1: #C9A84C;
+    --ts: 50%/calc(var(--sz) * 17.5) calc(var(--sz) * 29.5);
+    background:
+      radial-gradient(circle at 50% 50%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
+      radial-gradient(circle at 0% 0%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
+      radial-gradient(circle at 0% 100%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
+      radial-gradient(circle at 100% 0%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
+      radial-gradient(circle at 100% 100%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
+      conic-gradient(from 90deg at 97.5% 67%, var(--c1) 0 87.5deg, #fff0 88deg 100%) var(--ts),
+      conic-gradient(from 90deg at 97.5% 67%, var(--c1) 0 87.5deg, #fff0 88deg 100%) var(--ts),
+      conic-gradient(from 182.5deg at 2.5% 67%, #fff0 0 0deg, var(--c1) 0.5deg 90deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from 182.5deg at 2.5% 67%, #fff0 0 0deg, var(--c1) 0.5deg 90deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from 270deg at 2.5% 33%, var(--c1) 0 87.5deg, #fff0 88deg 100%) var(--ts),
+      conic-gradient(from 270deg at 2.5% 33%, var(--c1) 0 87.5deg, #fff0 88deg 100%) var(--ts),
+      conic-gradient(from 2.5deg at 97.5% 33%, #fff0 0 0deg, var(--c1) 0.5deg 90deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from 2.5deg at 97.5% 33%, #fff0 0 0deg, var(--c1) 0.5deg 90deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from 116.5deg at 50% 85.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from 116.5deg at 50% 85.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from 116.5deg at 50% 85.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from 120deg at 50% 83%, var(--c1) 0 120deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from -63.5deg at 50% 14.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from -63.5deg at 50% 14.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from -63.5deg at 50% 14.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
+      conic-gradient(from -60deg at 50% 17%, var(--c1) 0 120deg, #fff0 0 100%) var(--ts),
+      conic-gradient(
+        from 0deg at 50% 50%, #fff0 0 2deg,
+        var(--b2) 2.5deg 57.5deg,
+        #fff0 58deg 62.5deg,
+        var(--b1) 63deg 117.5deg,
+        #fff0 118deg 122.5deg,
+        var(--b3) 123deg 177.5deg,
+        #fff0 178deg 182deg,
+        var(--b2) 182.5deg 237.5deg,
+        #fff0 0 242.5deg,
+        var(--b1) 243deg 297.5deg,
+        #fff0 298deg 302.5deg,
+        var(--b3) 303deg 357.5deg,
+        #fff0 358deg 360deg
+      ) var(--ts),
+      var(--c1);
+    opacity: 0.6;
+    animation: cubesHue 14s linear 0s infinite;
+  }
+  .seccion-beneficios-wrapper .cubes-bg::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(19,19,17,0.5) 0%, rgba(19,19,17,0.25) 50%, rgba(19,19,17,0.5) 100%);
+  }
+  .seccion-beneficios-wrapper .section-particles {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: auto;
+  }
   .seccion {
     padding: 6rem 2rem;
     max-width: 1100px;
     margin: 0 auto;
+    position: relative;
+    z-index: 2;
   }
   .seccion-titulo {
     font-family: 'Playfair Display', serif;
@@ -646,7 +715,9 @@
 </section>
 
 <!-- BENEFICIOS -->
-<section style="background: #131311; padding: 5rem 0;">
+<section class="seccion-beneficios-wrapper" id="beneficiosSection">
+  <div class="cubes-bg"></div>
+  <canvas class="section-particles" id="beneficiosParticles"></canvas>
   <div class="seccion">
     <p style="font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--dorado);font-weight:700;margin-bottom:0.6rem;">Lo que ofrecemos</p>
     <h2 class="seccion-titulo">Todo en un solo lugar,<br>aquí en la sierra.</h2>
@@ -988,36 +1059,34 @@
     submitButton.disabled = isSubmitting;
     submitButton.textContent = isSubmitting ? 'Enviando solicitud...' : 'Enviar mi solicitud →';
   }
-  // ── INTERACTIVE PARTICLES ──
-  (function() {
-    const canvas = document.getElementById('heroParticles');
+  // ── INTERACTIVE PARTICLES (reusable) ──
+  function initParticleSystem(canvasId, sectionId, particleCount) {
+    const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const hero = document.getElementById('hero');
+    const section = document.getElementById(sectionId);
+    if (!section) return;
 
     let W, H;
     let mouse = { x: -9999, y: -9999, radius: 150 };
-    const PARTICLE_COUNT = 80;
     const CONNECTION_DIST = 120;
     const particles = [];
 
     const COLORS = [
-      'rgba(201,168,76,',   // dorado
-      'rgba(232,201,110,',  // dorado claro
-      'rgba(90,128,68,',    // verde claro
-      'rgba(245,237,214,',  // crema
+      'rgba(201,168,76,',
+      'rgba(232,201,110,',
+      'rgba(90,128,68,',
+      'rgba(245,237,214,',
     ];
 
     function resize() {
-      const rect = hero.getBoundingClientRect();
+      const rect = section.getBoundingClientRect();
       W = canvas.width = rect.width;
       H = canvas.height = rect.height;
     }
 
     class Particle {
-      constructor() {
-        this.reset();
-      }
+      constructor() { this.reset(); }
       reset() {
         this.x = Math.random() * W;
         this.y = Math.random() * H;
@@ -1032,12 +1101,9 @@
         this.pulseSpeed = Math.random() * 0.02 + 0.005;
       }
       update() {
-        // Pulse glow
         this.pulse += this.pulseSpeed;
         this.alpha = this.baseAlpha + Math.sin(this.pulse) * 0.15;
         this.size = this.baseSize + Math.sin(this.pulse) * 0.5;
-
-        // Mouse repulsion
         const dx = this.x - mouse.x;
         const dy = this.y - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1046,19 +1112,13 @@
           const angle = Math.atan2(dy, dx);
           this.vx += Math.cos(angle) * force * 0.8;
           this.vy += Math.sin(angle) * force * 0.8;
-          // Brighten near cursor
           this.alpha = Math.min(1, this.alpha + force * 0.4);
           this.size = this.baseSize + force * 3;
         }
-
-        // Friction
         this.vx *= 0.97;
         this.vy *= 0.97;
-
         this.x += this.vx;
         this.y += this.vy;
-
-        // Wrap edges
         if (this.x < -10) this.x = W + 10;
         if (this.x > W + 10) this.x = -10;
         if (this.y < -10) this.y = H + 10;
@@ -1069,7 +1129,6 @@
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fillStyle = this.color + this.alpha + ')';
         ctx.fill();
-        // Glow effect
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
         ctx.fillStyle = this.color + (this.alpha * 0.1) + ')';
@@ -1084,7 +1143,6 @@
           const dy = particles[i].y - particles[j].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < CONNECTION_DIST) {
-            // Only draw connections near the mouse for performance + aesthetics
             const mx = (particles[i].x + particles[j].x) / 2;
             const my = (particles[i].y + particles[j].y) / 2;
             const mouseDist = Math.sqrt((mx - mouse.x) ** 2 + (my - mouse.y) ** 2);
@@ -1112,34 +1170,30 @@
     function init() {
       resize();
       particles.length = 0;
-      for (let i = 0; i < PARTICLE_COUNT; i++) {
+      for (let i = 0; i < particleCount; i++) {
         particles.push(new Particle());
       }
       animate();
     }
 
-    // Mouse tracking relative to hero
-    hero.addEventListener('mousemove', e => {
-      const rect = hero.getBoundingClientRect();
+    section.addEventListener('mousemove', e => {
+      const rect = section.getBoundingClientRect();
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
     });
-    hero.addEventListener('mouseleave', () => {
+    section.addEventListener('mouseleave', () => {
       mouse.x = -9999;
       mouse.y = -9999;
     });
-
-    // Touch support
-    hero.addEventListener('touchmove', e => {
-      const rect = hero.getBoundingClientRect();
+    section.addEventListener('touchmove', e => {
+      const rect = section.getBoundingClientRect();
       mouse.x = e.touches[0].clientX - rect.left;
       mouse.y = e.touches[0].clientY - rect.top;
     }, { passive: true });
-    hero.addEventListener('touchend', () => {
+    section.addEventListener('touchend', () => {
       mouse.x = -9999;
       mouse.y = -9999;
     });
-
     window.addEventListener('resize', () => {
       resize();
       particles.forEach(p => {
@@ -1149,7 +1203,12 @@
     });
 
     init();
-  })();
+  }
+
+  // Initialize particles for Hero
+  initParticleSystem('heroParticles', 'hero', 80);
+  // Initialize particles for Beneficios
+  initParticleSystem('beneficiosParticles', 'beneficiosSection', 60);
 
 </script>
 </body>
