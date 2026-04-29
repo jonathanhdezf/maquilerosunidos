@@ -655,9 +655,33 @@
     }
     .footer-redes a { width: auto; }
   }
+
+  /* ── SCROLL PROGRESS BAR ── */
+  #scrollProgressBarContainer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.05);
+    z-index: 9999;
+    pointer-events: none;
+  }
+  #scrollProgressBar {
+    width: 100%;
+    height: 0%;
+    background: var(--dorado);
+    box-shadow: 0 0 10px rgba(201, 168, 76, 0.5);
+    transition: height 0.1s ease-out;
+  }
 </style>
 </head>
 <body>
+
+<!-- SCROLL PROGRESS BAR -->
+<div id="scrollProgressBarContainer">
+  <div id="scrollProgressBar"></div>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -923,11 +947,18 @@
 </footer>
 
 <script>
-  // ── PARALLAX HERO ──
+  // ── PARALLAX Y SCROLL PROGRESS ──
   const heroBg = document.getElementById('heroBg');
+  const scrollProgressBar = document.getElementById('scrollProgressBar');
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
-    heroBg.style.transform = `translateY(${y * 0.4}px)`;
+    if (heroBg) heroBg.style.transform = `translateY(${y * 0.4}px)`;
+    
+    if (scrollProgressBar) {
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = scrollHeight > 0 ? (y / scrollHeight) * 100 : 0;
+      scrollProgressBar.style.height = `${progress}%`;
+    }
   }, { passive: true });
 
   // ── SCROLL REVEAL ──
