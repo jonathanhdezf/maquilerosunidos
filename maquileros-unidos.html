@@ -139,7 +139,15 @@
     100% { filter: hue-rotate(360deg); }
   }
 
-  .hero-content { position: relative; z-index: 2; max-width: 820px; }
+  /* ── PARTICLE CANVAS ── */
+  #heroParticles {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: auto;
+  }
+
+  .hero-content { position: relative; z-index: 2; max-width: 820px; pointer-events: auto; }
 
   .hero-eyebrow {
     font-size: 0.75rem; letter-spacing: 0.3em; text-transform: uppercase;
@@ -612,6 +620,7 @@
 <!-- HERO -->
 <section id="hero">
   <div class="hero-bg" id="heroBg"></div>
+  <canvas id="heroParticles"></canvas>
   <div class="hero-content">
     <p class="hero-eyebrow">Fabricantes directos con bodega en Teziutlán</p>
     <h1 class="hero-title">
@@ -979,6 +988,169 @@
     submitButton.disabled = isSubmitting;
     submitButton.textContent = isSubmitting ? 'Enviando solicitud...' : 'Enviar mi solicitud →';
   }
+  // ── INTERACTIVE PARTICLES ──
+  (function() {
+    const canvas = document.getElementById('heroParticles');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const hero = document.getElementById('hero');
+
+    let W, H;
+    let mouse = { x: -9999, y: -9999, radius: 150 };
+    const PARTICLE_COUNT = 80;
+    const CONNECTION_DIST = 120;
+    const particles = [];
+
+    const COLORS = [
+      'rgba(201,168,76,',   // dorado
+      'rgba(232,201,110,',  // dorado claro
+      'rgba(90,128,68,',    // verde claro
+      'rgba(245,237,214,',  // crema
+    ];
+
+    function resize() {
+      const rect = hero.getBoundingClientRect();
+      W = canvas.width = rect.width;
+      H = canvas.height = rect.height;
+    }
+
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.size = Math.random() * 2.5 + 0.8;
+        this.baseSize = this.size;
+        this.vx = (Math.random() - 0.5) * 0.4;
+        this.vy = (Math.random() - 0.5) * 0.4;
+        this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        this.alpha = Math.random() * 0.5 + 0.3;
+        this.baseAlpha = this.alpha;
+        this.pulse = Math.random() * Math.PI * 2;
+        this.pulseSpeed = Math.random() * 0.02 + 0.005;
+      }
+      update() {
+        // Pulse glow
+        this.pulse += this.pulseSpeed;
+        this.alpha = this.baseAlpha + Math.sin(this.pulse) * 0.15;
+        this.size = this.baseSize + Math.sin(this.pulse) * 0.5;
+
+        // Mouse repulsion
+        const dx = this.x - mouse.x;
+        const dy = this.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < mouse.radius) {
+          const force = (mouse.radius - dist) / mouse.radius;
+          const angle = Math.atan2(dy, dx);
+          this.vx += Math.cos(angle) * force * 0.8;
+          this.vy += Math.sin(angle) * force * 0.8;
+          // Brighten near cursor
+          this.alpha = Math.min(1, this.alpha + force * 0.4);
+          this.size = this.baseSize + force * 3;
+        }
+
+        // Friction
+        this.vx *= 0.97;
+        this.vy *= 0.97;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Wrap edges
+        if (this.x < -10) this.x = W + 10;
+        if (this.x > W + 10) this.x = -10;
+        if (this.y < -10) this.y = H + 10;
+        if (this.y > H + 10) this.y = -10;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color + this.alpha + ')';
+        ctx.fill();
+        // Glow effect
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = this.color + (this.alpha * 0.1) + ')';
+        ctx.fill();
+      }
+    }
+
+    function drawConnections() {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONNECTION_DIST) {
+            // Only draw connections near the mouse for performance + aesthetics
+            const mx = (particles[i].x + particles[j].x) / 2;
+            const my = (particles[i].y + particles[j].y) / 2;
+            const mouseDist = Math.sqrt((mx - mouse.x) ** 2 + (my - mouse.y) ** 2);
+            if (mouseDist < mouse.radius * 1.8) {
+              const opacity = (1 - dist / CONNECTION_DIST) * (1 - mouseDist / (mouse.radius * 1.8)) * 0.35;
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = 'rgba(201,168,76,' + opacity + ')';
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          }
+        }
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, W, H);
+      particles.forEach(p => { p.update(); p.draw(); });
+      drawConnections();
+      requestAnimationFrame(animate);
+    }
+
+    function init() {
+      resize();
+      particles.length = 0;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push(new Particle());
+      }
+      animate();
+    }
+
+    // Mouse tracking relative to hero
+    hero.addEventListener('mousemove', e => {
+      const rect = hero.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+    });
+    hero.addEventListener('mouseleave', () => {
+      mouse.x = -9999;
+      mouse.y = -9999;
+    });
+
+    // Touch support
+    hero.addEventListener('touchmove', e => {
+      const rect = hero.getBoundingClientRect();
+      mouse.x = e.touches[0].clientX - rect.left;
+      mouse.y = e.touches[0].clientY - rect.top;
+    }, { passive: true });
+    hero.addEventListener('touchend', () => {
+      mouse.x = -9999;
+      mouse.y = -9999;
+    });
+
+    window.addEventListener('resize', () => {
+      resize();
+      particles.forEach(p => {
+        if (p.x > W) p.x = Math.random() * W;
+        if (p.y > H) p.y = Math.random() * H;
+      });
+    });
+
+    init();
+  })();
+
 </script>
 </body>
 </html>
