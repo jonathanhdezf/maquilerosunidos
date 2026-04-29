@@ -237,63 +237,8 @@
   .seccion-beneficios-wrapper {
     position: relative;
     overflow: hidden;
-    background: #131311;
+    background: #0a0a09;
     padding: 5rem 0;
-  }
-  .seccion-beneficios-wrapper .cubes-bg {
-    position: absolute; inset: 0;
-    --sz: 4px;
-    --b1: #2D4A22;
-    --b2: #1c2818;
-    --b3: #0c0b0a;
-    --b4: #0c0b0ae0;
-    --c1: #C9A84C;
-    --ts: 50%/calc(var(--sz) * 17.5) calc(var(--sz) * 29.5);
-    background:
-      radial-gradient(circle at 50% 50%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
-      radial-gradient(circle at 0% 0%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
-      radial-gradient(circle at 0% 100%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
-      radial-gradient(circle at 100% 0%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
-      radial-gradient(circle at 100% 100%, var(--b4) calc(var(--sz) * 1), #fff0 calc(var(--sz) * 8)) var(--ts),
-      conic-gradient(from 90deg at 97.5% 67%, var(--c1) 0 87.5deg, #fff0 88deg 100%) var(--ts),
-      conic-gradient(from 90deg at 97.5% 67%, var(--c1) 0 87.5deg, #fff0 88deg 100%) var(--ts),
-      conic-gradient(from 182.5deg at 2.5% 67%, #fff0 0 0deg, var(--c1) 0.5deg 90deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from 182.5deg at 2.5% 67%, #fff0 0 0deg, var(--c1) 0.5deg 90deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from 270deg at 2.5% 33%, var(--c1) 0 87.5deg, #fff0 88deg 100%) var(--ts),
-      conic-gradient(from 270deg at 2.5% 33%, var(--c1) 0 87.5deg, #fff0 88deg 100%) var(--ts),
-      conic-gradient(from 2.5deg at 97.5% 33%, #fff0 0 0deg, var(--c1) 0.5deg 90deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from 2.5deg at 97.5% 33%, #fff0 0 0deg, var(--c1) 0.5deg 90deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from 116.5deg at 50% 85.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from 116.5deg at 50% 85.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from 116.5deg at 50% 85.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from 120deg at 50% 83%, var(--c1) 0 120deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from -63.5deg at 50% 14.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from -63.5deg at 50% 14.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from -63.5deg at 50% 14.5%, var(--b1) 0 127deg, #fff0 0 100%) var(--ts),
-      conic-gradient(from -60deg at 50% 17%, var(--c1) 0 120deg, #fff0 0 100%) var(--ts),
-      conic-gradient(
-        from 0deg at 50% 50%, #fff0 0 2deg,
-        var(--b2) 2.5deg 57.5deg,
-        #fff0 58deg 62.5deg,
-        var(--b1) 63deg 117.5deg,
-        #fff0 118deg 122.5deg,
-        var(--b3) 123deg 177.5deg,
-        #fff0 178deg 182deg,
-        var(--b2) 182.5deg 237.5deg,
-        #fff0 0 242.5deg,
-        var(--b1) 243deg 297.5deg,
-        #fff0 298deg 302.5deg,
-        var(--b3) 303deg 357.5deg,
-        #fff0 358deg 360deg
-      ) var(--ts),
-      var(--c1);
-    opacity: 0.6;
-    animation: cubesHue 14s linear 0s infinite;
-  }
-  .seccion-beneficios-wrapper .cubes-bg::before {
-    content: '';
-    position: absolute; inset: 0;
-    background: linear-gradient(to bottom, rgba(19,19,17,0.5) 0%, rgba(19,19,17,0.25) 50%, rgba(19,19,17,0.5) 100%);
   }
   .seccion-beneficios-wrapper .section-particles {
     position: absolute;
@@ -716,7 +661,6 @@
 
 <!-- BENEFICIOS -->
 <section class="seccion-beneficios-wrapper" id="beneficiosSection">
-  <div class="cubes-bg"></div>
   <canvas class="section-particles" id="beneficiosParticles"></canvas>
   <div class="seccion">
     <p style="font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--dorado);font-weight:700;margin-bottom:0.6rem;">Lo que ofrecemos</p>
