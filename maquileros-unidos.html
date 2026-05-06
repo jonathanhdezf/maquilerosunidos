@@ -656,6 +656,124 @@
     .footer-redes a { width: auto; }
   }
 
+  /* ── INTRO VIDEO OVERLAY ── */
+  #intro-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.8s ease, visibility 0.8s;
+  }
+
+  .video-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  .video-container iframe {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100vw;
+    height: 56.25vw; /* 16:9 ratio */
+    min-height: 100vh;
+    min-width: 177.77vh; /* 16:9 ratio */
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  #terminal-overlay {
+    position: relative;
+    z-index: 2;
+    width: 90%;
+    max-width: 600px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid #333;
+    border-radius: 6px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    padding: 20px;
+    font-family: 'Courier New', Courier, monospace;
+    color: #00FF00;
+    font-size: 14px;
+    text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+  }
+
+  .terminal-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 8px;
+  }
+
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.red { background: #ff5f56; }
+  .dot.yellow { background: #ffbd2e; }
+  .dot.green { background: #27c93f; }
+
+  .terminal-body {
+    line-height: 1.6;
+  }
+
+  .terminal-line {
+    margin-bottom: 5px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .prompt {
+    color: #00FF00;
+    font-weight: bold;
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    background: #00FF00;
+    margin-left: 5px;
+    animation: blink 1s infinite;
+    vertical-align: middle;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .password-input {
+    background: transparent;
+    border: none;
+    color: transparent;
+    text-shadow: 0 0 0 #00FF00;
+    outline: none;
+    font-family: inherit;
+    font-size: inherit;
+    width: 1px;
+    height: 1px;
+    position: absolute;
+    left: -1000px;
+  }
+
+  .intro-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   /* ── SCROLL PROGRESS BAR ── */
   #scrollProgressBarContainer {
     position: fixed;
@@ -677,6 +795,39 @@
 </style>
 </head>
 <body>
+
+<!-- INTRO VIDEO OVERLAY -->
+<div id="intro-overlay">
+  <div class="video-container">
+    <iframe 
+      id="intro-video"
+      src="https://www.youtube.com/embed/SPP5ufJkA3M?autoplay=1&mute=1&controls=0&loop=1&playlist=SPP5ufJkA3M&enablejsapi=1" 
+      frameborder="0" 
+      allow="autoplay; encrypted-media" 
+      allowfullscreen>
+    </iframe>
+  </div>
+
+  <div id="terminal-overlay">
+    <div class="terminal-header">
+      <div class="dot red"></div>
+      <div class="dot yellow"></div>
+      <div class="dot green"></div>
+    </div>
+    <div class="terminal-body" id="terminal-content">
+      <div class="terminal-line">Welcome to Maquileros Unidos System v2.0.4</div>
+      <div class="terminal-line">Initializing secure connection... OK</div>
+      <div class="terminal-line">Unauthorized access is prohibited.</div>
+      <div class="terminal-line" style="margin-top: 15px;">
+        <span class="prompt">root@maquileros:~$</span> sudo access --grant
+      </div>
+      <div class="terminal-line" id="password-line">
+        [sudo] password for root: <span id="password-display"></span><span class="cursor"></span>
+      </div>
+      <input type="password" id="terminal-input" class="password-input" autofocus>
+    </div>
+  </div>
+</div>
 
 <!-- SCROLL PROGRESS BAR -->
 <div id="scrollProgressBarContainer">
@@ -1266,6 +1417,84 @@
     'rgba(201,168,76,',  // base gold
     'rgba(255,215,0,'    // pure gold
   ]);
+
+  // ── INTRO TERMINAL LOGIC ──
+  const introOverlay = document.getElementById('intro-overlay');
+  const terminalInput = document.getElementById('terminal-input');
+  const passwordDisplay = document.getElementById('password-display');
+  const terminalContent = document.getElementById('terminal-content');
+  const introVideo = document.getElementById('intro-video');
+
+  const CORRECT_PASSWORD = 'maquileros';
+
+  // Keep focus on input
+  document.addEventListener('click', () => {
+    if (!introOverlay.classList.contains('intro-hidden')) {
+      terminalInput.focus();
+    }
+  });
+
+  terminalInput.addEventListener('input', (e) => {
+    // Linux terminal style: usually doesn't show anything (stealth mode)
+    passwordDisplay.textContent = ''; 
+  });
+
+  terminalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const inputVal = terminalInput.value.toLowerCase();
+      if (inputVal === CORRECT_PASSWORD) {
+        // Access granted
+        const successLine = document.createElement('div');
+        successLine.className = 'terminal-line';
+        successLine.style.color = '#27c93f';
+        successLine.textContent = 'Access granted. Welcome, root.';
+        terminalContent.appendChild(successLine);
+
+        const decryptLine = document.createElement('div');
+        decryptLine.className = 'terminal-line';
+        decryptLine.textContent = 'Decrypting interface... [||||||||||] 100%';
+        terminalContent.appendChild(decryptLine);
+
+        setTimeout(() => {
+          introOverlay.classList.add('intro-hidden');
+          // Start the page content animations if any were paused
+          document.body.style.overflow = 'auto';
+        }, 1000);
+      } else {
+        // Access denied
+        const errorLine = document.createElement('div');
+        errorLine.className = 'terminal-line';
+        errorLine.style.color = '#ff5f56';
+        errorLine.textContent = 'Access denied. Invalid password.';
+        terminalContent.appendChild(errorLine);
+        
+        terminalInput.value = '';
+        passwordDisplay.textContent = '';
+        
+        // Auto-scroll to bottom of terminal
+        terminalContent.scrollTop = terminalContent.scrollHeight;
+      }
+    }
+  });
+
+  // Prevent scrolling while intro is active
+  if (!introOverlay.classList.contains('intro-hidden')) {
+    document.body.style.overflow = 'hidden';
+  }
+
+  // Handle YouTube Autoplay with Sound
+  // Most browsers block autoplay with sound unless there is a user interaction.
+  // We can try to play it unmuted after the first click.
+  let videoStarted = false;
+  document.addEventListener('click', () => {
+    if (!videoStarted) {
+      // Trying to play unmuted via JS API if possible
+      // (Requires the iframe to have enablejsapi=1)
+      introVideo.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+      introVideo.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+      videoStarted = true;
+    }
+  }, { once: true });
 
 </script>
 </body>
